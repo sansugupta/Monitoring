@@ -1,91 +1,99 @@
-Certainly! Here's a detailed and in-depth README file for your project based on the provided content:
-
-```markdown
-# Observability with Prometheus and Grafana on Kubernetes
-
-## Introduction
-Welcome to the project repository! This project aims to implement observability in Kubernetes using Prometheus and Grafana. Through this setup, you will learn how to monitor applications and create dashboards that visualize various metrics.
+# Kubernetes Observability with Prometheus and Grafana
 
 ## Project Overview
-In this project, we will deploy an application and monitor it using various tools, including:
-- Kubernetes
-- Prometheus
-- Grafana
-- Argo CD
-- Redis
-- PostgreSQL
-
-By the end of this project, you will have a comprehensive understanding of how to set up observability in Kubernetes.
+This project demonstrates setting up observability for a Kubernetes application using Kind (Kubernetes in Docker), Prometheus, and Grafana.
 
 ## Prerequisites
-- Basic knowledge of Kubernetes
-- Familiarity with Docker
-- AWS account (if deploying on AWS)
+- Linux Server/Instance
+- Docker
+- Helm
+- kubectl
 
-## Installation Steps
+## Step-by-Step Setup
 
-1. **Setting Up the Instance**
-   - Create a new instance named "Observability" with the following specifications:
-     - Instance Type: `t2.micro`
-     - Storage: `15GB`
-     - Allow HTTP/HTTPS ports
+### 1. System Preparation
+```bash
+# Update system packages
+sudo apt-get update
 
-2. **Install Required Tools**
-   - Update the system:
-     ```bash
-     sudo apt-get update
-     ```
-   - Install Docker:
-     ```bash
-     sudo apt-get install docker.io
-     ```
-   - Install `kubectl` for Kubernetes management:
-     ```bash
-     sudo snap install kubectl --classic
-     ```
+# Install Docker
+sudo apt-get install docker.io
 
-3. **Setting Up Kubernetes Cluster**
-   - Use Kind to create a Kubernetes cluster:
-     ```bash
-     kind create cluster --name my-cluster
-     ```
-
-4. **Install Helm**
-   - Install Helm, the package manager for Kubernetes:
-     ```bash
-     curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
-     ```
-
-5. **Deploy Prometheus and Grafana**
-   - Add the Prometheus community Helm repository:
-     ```bash
-     helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-     helm repo update
-     ```
-   - Install Prometheus:
-     ```bash
-     helm install prometheus prometheus-community/prometheus
-     ```
-
-6. **Accessing the Dashboards**
-   - Forward the ports for Grafana and Prometheus:
-     ```bash
-     kubectl port-forward service/prometheus-server 9090:80
-     kubectl port-forward service/grafana 3000:80
-     ```
-   - Access Grafana at `http://<your-instance-ip>:3000` and log in with the credentials.
-
-## Creating Dashboards
-- Create dashboards in Grafana by adding data sources and visualizing metrics from Prometheus. You can import existing dashboards or create new ones based on your requirements.
-
-## Conclusion
-This project will provide you with hands-on experience in setting up observability with Prometheus and Grafana in Kubernetes. Feel free to explore and modify the dashboards as needed.
-
-## Contributing
-If you have any suggestions or improvements, please feel free to open an issue or submit a pull request.
-
-## License
-This project is licensed under the MIT License - see the LICENSE.md file for details.
+# Give Docker permissions
+sudo usermod -aG docker $USER && newgrp docker
 ```
 
-This README provides a comprehensive overview of your project, including setup, installation steps, and usage, ensuring clarity and depth for users interested in implementing observability in Kubernetes.
+### 2. Install Kind (Kubernetes in Docker)
+```bash
+# Create Kubernetes cluster
+kind create cluster --config=config.yml --name=my-cluster
+
+# Verify nodes
+kubectl get nodes
+```
+
+### 3. Deploy Application
+```bash
+# Apply all Kubernetes manifests
+kubectl apply -f .
+
+# Verify deployments
+kubectl get all
+```
+
+### 4. Install Prometheus and Grafana using Helm
+```bash
+# Add Helm repositories
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add stable https://charts.helm.sh/stable
+helm repo update
+
+# Create monitoring namespace
+kubectl create namespace monitoring
+
+# Install Prometheus Stack
+helm install kind-prometheus prometheus-community/kube-prometheus-stack \
+    --namespace monitoring \
+    --set prometheus.service.nodePort=30000 \
+    --set prometheus.service.type=NodePort \
+    --set grafana.service.nodePort=31000 \
+    --set grafana.service.type=NodePort
+```
+
+### 5. Port Forwarding for Access
+```bash
+# Forward Prometheus
+kubectl port-forward svc/kind-prometheus-kube-prome-prometheus -n monitoring 9090:9090 --address=0.0.0.0 &
+
+# Forward Grafana
+kubectl port-forward svc/kind-prometheus-grafana -n monitoring 31000:80 --address=0.0.0.0 &
+```
+
+### 6. Monitoring and Metrics
+- Access Prometheus: `http://[PublicIP]:9090`
+- Access Grafana: `http://[PublicIP]:31000`
+  - Default Login: admin/prom-operator
+
+### Sample PromQL Queries
+```promql
+# CPU Usage Percentage
+sum(rate(container_cpu_usage_seconds_total{namespace="default"}[1m])) / sum(machine_cpu_cores) * 100
+```
+
+## Key Observability Components
+- **Prometheus**: Time-series metrics database
+- **Grafana**: Visualization and dashboarding
+- **Node Exporter**: Metrics collection for system resources
+
+## Recommended Grafana Dashboards
+- Kubernetes Cluster Monitoring
+- Node Exporter Full
+- Custom Application Dashboards
+
+## Troubleshooting
+- Ensure ports are opened in security groups
+- Check namespace configurations
+- Verify Helm and kubectl configurations
+
+## Contributing
+Contributions are welcome! Please fork the repository and submit pull requests.
